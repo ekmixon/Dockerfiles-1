@@ -164,8 +164,19 @@ def parse_ingredients(path):
 
 #method that generates URL placeholder for link to DOckerfiles
 def url_generator(local_path, image_name, image_type, image_os, image_platform):
-    url = ' - ['+image_platform.lower()+'-'+image_os.lower().replace('.','')+'-'+image_type.lower()+'-'+image_name.lower()+']('+REPO_LINK+local_path.split('Dockerfiles/')[1]+'/Dockerfile'+')'
-    return url
+    return (
+        f' - [{image_platform.lower()}-'
+        + image_os.lower().replace('.', '')
+        + '-'
+        + image_type.lower()
+        + '-'
+        + image_name.lower()
+        + ']('
+        + REPO_LINK
+        + local_path.split('Dockerfiles/')[1]
+        + '/Dockerfile'
+        + ')'
+    )
 
 # Generate links to docs of included components
 def included_components(image_name):
@@ -180,9 +191,11 @@ def included_components(image_name):
     
 # Generate quick reference part of README
 def quick_reference(local_path, image_name, image_type, image_os, image_platform):
-    text_holder = "## Quick reference\n"
-    text_holder += "- #### Supported platform and OS\n"
-    text_holder += "  Intel&reg; "+platform_subs[image_platform]+", "+os_subs[image_os]
+    text_holder = "## Quick reference\n" + "- #### Supported platform and OS\n"
+    text_holder += (
+        f"  Intel&reg; {platform_subs[image_platform]}, {os_subs[image_os]}"
+    )
+
     text_holder += "\n\n"
     text_holder += included_components(image_name)
     text_holder +="""
@@ -198,18 +211,15 @@ def quick_reference(local_path, image_name, image_type, image_os, image_platform
 # Populate license info based on if the image is based of another image
 def inheritance_populate(handler_list, inherited_file_path):
     inherited_entry_holder = ''
-    with open(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))+'/'+inherited_file_path+'/Dockerfile.m4', 'r') as fh:
-        line = fh.readline()
-        while line:
+    with open(f'{os.path.dirname(os.path.dirname(os.path.abspath(__file__)))}/{inherited_file_path}/Dockerfile.m4', 'r') as fh:
+        while line := fh.readline():
             if 'm4' in line:
-                m = re.search('[a-zA-Z0-9\-\.\_]+.m4', line)
-                if m:
-                    handler = (m.group(0).split('.m4')[0])
+                if m := re.search('[a-zA-Z0-9\-\.\_]+.m4', line):
+                    handler = m[0].split('.m4')[0]
                     if handler not in license_exclude and handler not in handler_list:
                         for license_entry in license_subs[handler]:
                             inherited_entry_holder += license_entry
                             inherited_entry_holder += '\n'
-            line = fh.readline()
     return inherited_entry_holder
 
 def parse_inherited_file(inherited_file,image_os):
@@ -224,9 +234,8 @@ def parse_m4(local_path,image_os):
     os_flag = False
     ovc_inheritance_flag = False
     handler_list = []
-    with open(local_path+'/Dockerfile.m4', 'r') as fp:
-        line = fp.readline()
-        while line:
+    with open(f'{local_path}/Dockerfile.m4', 'r') as fp:
+        while line := fp.readline():
             if 'ubuntu' in image_os and not os_flag:
                 entry_holder += '|Ubuntu| [Various](https://hub.docker.com/_/ubuntu) |'
                 entry_holder += '\n'
@@ -241,25 +250,26 @@ def parse_m4(local_path,image_os):
                 entry_holder += inheritance_populate(handler_list, path_subs[inherited_file_1])
                 ovc_inheritance_flag = True
             if 'm4' in line:
-                m = re.search('[a-zA-Z0-9\-\.\_]+.m4', line)
-                if m:
-                    handler = (m.group(0).split('.m4')[0])
+                if m := re.search('[a-zA-Z0-9\-\.\_]+.m4', line):
+                    handler = m[0].split('.m4')[0]
                     handler_list.append(handler)
                     if handler not in license_exclude:
                         for license_entry in license_subs[handler]:
                             entry_holder += license_entry
                             entry_holder += '\n'
-            line = fp.readline()
     return entry_holder
 
 # Main method
 def generate_license(local_path, image_name, image_type, image_os, image_platform):
-    text_holder = """## License
+    text_holder = (
+        """## License
 This docker installs third party components licensed under various open source licenses.  The terms under which those components may be used and distributed can be found with the license document that is provided with those components.  Please familiarize yourself with those terms to ensure your distribution of those components complies with the terms of those licenses.\n\n
 """
-    text_holder += "| Components | License |\n"
+        + "| Components | License |\n"
+    )
+
     text_holder += "| ----- | ----- |\n"
-    text_holder += parse_m4(local_path, image_os) 
+    text_holder += parse_m4(local_path, image_os)
     text_holder += "\n\n"
     text_holder += """More license information can be found in [components source package](https://github.com/OpenVisualCloud/Dockerfiles-Resources).   
 As for any pre-built image usage, it is the image user's responsibility to ensure that any use of this image complies with any relevant licenses and potential fees for all software contained within. We will have no indemnity or warranty coverage from suppliers.
@@ -267,67 +277,66 @@ As for any pre-built image usage, it is the image user's responsibility to ensur
     return text_holder
 
 def create_readme(path, path_components):
-    my_file = open(path+"/README.md","w")
-    my_file.write("This docker image is part of Open Visual Cloud software stacks. ")
-    image_name = path_components[3]
-    image_type = path_components[2]
-    image_os = path_components[1]
-    image_platform = path_components[0]
- 
-    if image_platform=="QAT":
-        my_file.write("Optimized for NGINX web server with compute-intensive operations acceleration with Intel® QuickAssist Technology (Intel® QAT).The docker image can be used in the FROM field of a downstream Dockerfile.")
-    elif image_name=="dev":
-        my_file.write("This is development image aim towards enabling C++ application compilation, debugging (with the debugging, profiling tools) and optimization (with the optimization tools.) You can compile C++ applications with this image and then copy the applications to the corresponding deployment image. ")
-        if image_type=="analytics":
-            my_file.write("Included what are in FFmpeg & GStreamer media analytics images. ")
-        if image_type=="media":
-            my_file.write("Included what are in FFmpeg or GStreamer media creation and delivery images . ")
-        if image_platform=="XeonE3" or image_platform=="SG1" or image_platform=="VCAC-A":
-            my_file.write("Also included Intel hardware accelaration software stack such as media SDK, media driver, gmmlib and libva. ")
-        my_file.write("The docker image can be used in the FROM field of a downstream Dockerfile. ")
-    elif image_type=="analytics":
-        my_file.write("Optimized for Media Analytics. ")
-        if image_name=="gst":
-            my_file.write("Included what are in media delivery GStreamer image, inferencing engine and video analytics plugins. ")
-        if image_name=="ffmpeg":
-            my_file.write("Included what are in media delivery FFmpeg image, inferencing engine and video analytics plugins. ")
-        if image_name=="hddldaemon":
-            my_file.write("With OpenVINO HDDL daemon installed and configured. ")
-        if image_platform=="XeonE3" or image_platform=="SG1" or image_platform=="VCAC-A" and image_name!="hddldaemon":
-            my_file.write("Also included Intel hardware accelaration software stack such as media SDK, media driver, opencl, gmmlib and libva. ")
-        my_file.write("The docker image can be used in the FROM field of a downstream Dockerfile. ")
-    elif image_type=="media":
-        my_file.write("Optimized for the media creation and delivery use case. ")
-        if image_name=="gst":
-            my_file.write("Included gstreamer and audio and video plugins that can be connected to process audio and video content, such as creating, converting, transcoding. ")
-        if image_name=="ffmpeg":
-            my_file.write("Included FFmpeg and codecs such as opus, ogg, vorbis, x264, x265, vp8/9, av1 and SVT-HEVC. ")
-        if image_name=="nginx":
-            my_file.write("Optimized for NGINX web server that can be used for serving web content, load balancing, HTTP caching, or a reverse proxy. ")
-        if image_name=="svt":
-            my_file.write("Image with SVT (Scalable Video Technology) Encoder and decoders. Ready to use SVT apps to try AV1, HEVC, VP9 transcoders. ")
-        if image_name=="srs":
-            my_file.write("Image with SRS high efficiency, stable and simple RTMP/HLS/FLV streaming cluster. ")
-        if image_platform=="XeonE3" or image_platform=="SG1" or image_platform=="VCAC-A":
-            my_file.write("Also included Intel hardware accelaration software stack such as media SDK, media driver, gmmlib and libva. ")
-        my_file.write("The docker image can be used in the FROM field of a downstream Dockerfile. ")
-    elif image_type=="service":
-        my_file.write("Optimized for video conferencing service based on the WebRTC technology and Open WebRTC Toolkit (OWT). ")
-        if image_name=="owt":
-            my_file.write("Optimized for video conferencing service based on the WebRTC technology and Open WebRTC Toolkit (OWT). Included conferencing modes: 1:N, N:N with video and audio processing nodes. ")
-        if image_name=="owt360":
-            my_file.write("Docker image optimized for ultra-high resolution immersive video low latency streaming, based on the WebRTC technology and the Open WebRTC Toolkit. Included SVT-HEVC tile-based 4K and 8K transcoding and field of view (FoV) adaptive streaming. ")
-        if image_os=="XeonE3":
-            my_file.write("Also included Intel hardware accelaration software stack such as media SDK, media driver, gmmlib and libva. ")
-        my_file.write("The docker image can be used in the FROM field of a downstream Dockerfile. ")
+    with open(f"{path}/README.md", "w") as my_file:
+        my_file.write("This docker image is part of Open Visual Cloud software stacks. ")
+        image_name = path_components[3]
+        image_type = path_components[2]
+        image_os = path_components[1]
+        image_platform = path_components[0]
 
-    my_file.write("\n\n")
-    my_file.write("## Supported tags and respective Dockerfile links\n")
-    my_file.write(url_generator(path, image_name, image_type, image_os, image_platform))
-    my_file.write("\n\n")
-    my_file.write(quick_reference(path, image_name, image_type, image_os, image_platform))
-    my_file.write(generate_license(path, image_name, image_type, image_os, image_platform))
-    my_file.close()
+        if image_platform=="QAT":
+            my_file.write("Optimized for NGINX web server with compute-intensive operations acceleration with Intel® QuickAssist Technology (Intel® QAT).The docker image can be used in the FROM field of a downstream Dockerfile.")
+        elif image_name=="dev":
+            my_file.write("This is development image aim towards enabling C++ application compilation, debugging (with the debugging, profiling tools) and optimization (with the optimization tools.) You can compile C++ applications with this image and then copy the applications to the corresponding deployment image. ")
+            if image_type=="analytics":
+                my_file.write("Included what are in FFmpeg & GStreamer media analytics images. ")
+            if image_type=="media":
+                my_file.write("Included what are in FFmpeg or GStreamer media creation and delivery images . ")
+            if image_platform in ["XeonE3", "SG1", "VCAC-A"]:
+                my_file.write("Also included Intel hardware accelaration software stack such as media SDK, media driver, gmmlib and libva. ")
+            my_file.write("The docker image can be used in the FROM field of a downstream Dockerfile. ")
+        elif image_type=="analytics":
+            my_file.write("Optimized for Media Analytics. ")
+            if image_name=="gst":
+                my_file.write("Included what are in media delivery GStreamer image, inferencing engine and video analytics plugins. ")
+            if image_name=="ffmpeg":
+                my_file.write("Included what are in media delivery FFmpeg image, inferencing engine and video analytics plugins. ")
+            if image_name=="hddldaemon":
+                my_file.write("With OpenVINO HDDL daemon installed and configured. ")
+            if image_platform=="XeonE3" or image_platform=="SG1" or image_platform=="VCAC-A" and image_name!="hddldaemon":
+                my_file.write("Also included Intel hardware accelaration software stack such as media SDK, media driver, opencl, gmmlib and libva. ")
+            my_file.write("The docker image can be used in the FROM field of a downstream Dockerfile. ")
+        elif image_type=="media":
+            my_file.write("Optimized for the media creation and delivery use case. ")
+            if image_name=="gst":
+                my_file.write("Included gstreamer and audio and video plugins that can be connected to process audio and video content, such as creating, converting, transcoding. ")
+            if image_name=="ffmpeg":
+                my_file.write("Included FFmpeg and codecs such as opus, ogg, vorbis, x264, x265, vp8/9, av1 and SVT-HEVC. ")
+            if image_name=="nginx":
+                my_file.write("Optimized for NGINX web server that can be used for serving web content, load balancing, HTTP caching, or a reverse proxy. ")
+            if image_name=="svt":
+                my_file.write("Image with SVT (Scalable Video Technology) Encoder and decoders. Ready to use SVT apps to try AV1, HEVC, VP9 transcoders. ")
+            if image_name=="srs":
+                my_file.write("Image with SRS high efficiency, stable and simple RTMP/HLS/FLV streaming cluster. ")
+            if image_platform in ["XeonE3", "SG1", "VCAC-A"]:
+                my_file.write("Also included Intel hardware accelaration software stack such as media SDK, media driver, gmmlib and libva. ")
+            my_file.write("The docker image can be used in the FROM field of a downstream Dockerfile. ")
+        elif image_type=="service":
+            my_file.write("Optimized for video conferencing service based on the WebRTC technology and Open WebRTC Toolkit (OWT). ")
+            if image_name=="owt":
+                my_file.write("Optimized for video conferencing service based on the WebRTC technology and Open WebRTC Toolkit (OWT). Included conferencing modes: 1:N, N:N with video and audio processing nodes. ")
+            if image_name=="owt360":
+                my_file.write("Docker image optimized for ultra-high resolution immersive video low latency streaming, based on the WebRTC technology and the Open WebRTC Toolkit. Included SVT-HEVC tile-based 4K and 8K transcoding and field of view (FoV) adaptive streaming. ")
+            if image_os=="XeonE3":
+                my_file.write("Also included Intel hardware accelaration software stack such as media SDK, media driver, gmmlib and libva. ")
+            my_file.write("The docker image can be used in the FROM field of a downstream Dockerfile. ")
+
+        my_file.write("\n\n")
+        my_file.write("## Supported tags and respective Dockerfile links\n")
+        my_file.write(url_generator(path, image_name, image_type, image_os, image_platform))
+        my_file.write("\n\n")
+        my_file.write(quick_reference(path, image_name, image_type, image_os, image_platform))
+        my_file.write(generate_license(path, image_name, image_type, image_os, image_platform))
 
 if len(sys.argv)<1:
     print("Usage: <README path>\n")
